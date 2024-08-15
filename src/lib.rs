@@ -23,10 +23,11 @@ fn print_packet_info(interface: &NetworkInterface, ethernet_packet: EthernetPack
     println!("Packet data: {:?}", ethernet_packet.packet());
     println!("Payload: {:?}", ethernet_packet.payload());
     println!("Parsed packet: {:?}", ethernet_packet.from_packet());
-    println!("---");
+    println!("--------------------------------------------------------------------------------------");
 }
 
-fn print_network_stats(stats: &HashMap<IpAddr, PacketStats>) {
+fn print_network_stats(interface_name: &str, stats: &HashMap<IpAddr, PacketStats>) {
+    println!("Interface: {}", interface_name);
     println!("{:<30} {:<30} {:<30}", "IP", "Packets", "Total Size (bytes)");
     println!("--------------------------------------------------------------------------------------");
     for (ip, stat) in stats {
@@ -63,7 +64,7 @@ pub fn sniff_packets(interface: NetworkInterface) {
 
                                 println!("IPv4 packet: {} => {}", source_ip, dest_ip);
                             }
-                            print_packet_info(&interface, ethernet_packet);
+                            // print_packet_info(&interface, ethernet_packet);
                         }
                         EtherTypes::Ipv6 => {
                             if let Some(ipv6_packet) = Ipv6Packet::new(ethernet_packet.payload()) {
@@ -77,7 +78,7 @@ pub fn sniff_packets(interface: NetworkInterface) {
 
                                 println!("IPv6 packet: {} => {}", source_ip, dest_ip);
                             }
-                            print_packet_info(&interface, ethernet_packet);
+                            // print_packet_info(&interface, ethernet_packet);
                         }
                         _ => {
                             println!(
@@ -86,10 +87,9 @@ pub fn sniff_packets(interface: NetworkInterface) {
                             );
                         }
                     }
-                    println!("---");
+                    println!("--------------------------------------------------------------------------------------");
 
-                    print_network_stats(&network_stats);
-                }
+                    print_network_stats(&interface.name, &network_stats);                }
             }
             Err(e) => panic!("Error reading packet: {}", e),
         }
