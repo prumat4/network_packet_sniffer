@@ -35,7 +35,6 @@ fn print_network_stats(stats: &HashMap<IpAddr, PacketStats>) {
     println!("--------------------------------------------------------------------------------------");
 }
 
-
 pub fn sniff_packets(interface: NetworkInterface) {
     let mut rx = match datalink::channel(&interface, Default::default()) {
         Ok(Ethernet(_, rx)) => rx,
