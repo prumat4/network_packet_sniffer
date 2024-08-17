@@ -2,12 +2,13 @@ use pnet::datalink::{self, Channel::Ethernet, NetworkInterface};
 use pnet::packet::ethernet::{EtherTypes, EthernetPacket};
 use pnet::packet::ipv4::Ipv4Packet;
 use pnet::packet::ipv6::Ipv6Packet;
-use pnet::packet::FromPacket;
 use pnet::packet::Packet;
 use std::collections::HashMap;
 use std::net::IpAddr;
+use std::sync::mpsc;
 
-struct PacketStats {
+#[derive(Debug, Clone)]
+pub struct PacketStats {
     count: u64,
     size: u64,
 }
@@ -22,7 +23,6 @@ fn print_packet_info(interface: &NetworkInterface, ethernet_packet: EthernetPack
     );
     println!("Packet data: {:?}", ethernet_packet.packet());
     println!("Payload: {:?}", ethernet_packet.payload());
-    println!("Parsed packet: {:?}", ethernet_packet.from_packet());
     println!("--------------------------------------------------------------------------------------");
 }
 
@@ -36,7 +36,7 @@ fn print_network_stats(interface_name: &str, stats: &HashMap<IpAddr, PacketStats
     println!("--------------------------------------------------------------------------------------");
 }
 
-pub fn sniff_packets(interface: NetworkInterface) {
+pub fn sniff_packets(interface: NetworkInterface, tx: mpsc::Sender<(String, HashMap<IpAddr, PacketStats>)>) {
     let mut rx = match datalink::channel(&interface, Default::default()) {
         Ok(Ethernet(_, rx)) => rx,
         Ok(_) => panic!("Unhandled channel type for interface: {}", interface.name),
@@ -62,9 +62,8 @@ pub fn sniff_packets(interface: NetworkInterface) {
                                 update_stats(&mut network_stats, source_ip, packet_size);
                                 update_stats(&mut network_stats, dest_ip, packet_size);
 
-                                println!("IPv4 packet: {} => {}", source_ip, dest_ip);
+                                // println!("IPv4 packet: {} => {}", source_ip, dest_ip);
                             }
-                            // print_packet_info(&interface, ethernet_packet);
                         }
                         EtherTypes::Ipv6 => {
                             if let Some(ipv6_packet) = Ipv6Packet::new(ethernet_packet.payload()) {
@@ -76,9 +75,8 @@ pub fn sniff_packets(interface: NetworkInterface) {
                                 update_stats(&mut network_stats, source_ip, packet_size);
                                 update_stats(&mut network_stats, dest_ip, packet_size);
 
-                                println!("IPv6 packet: {} => {}", source_ip, dest_ip);
+                                // println!("IPv6 packet: {} => {}", source_ip, dest_ip);
                             }
-                            // print_packet_info(&interface, ethernet_packet);
                         }
                         _ => {
                             println!(
@@ -87,9 +85,14 @@ pub fn sniff_packets(interface: NetworkInterface) {
                             );
                         }
                     }
-                    println!("--------------------------------------------------------------------------------------");
+                    // println!("--------------------------------------------------------------------------------------");
 
-                    print_network_stats(&interface.name, &network_stats);                }
+                    // print_network_stats(&interface.name, &network_stats);
+
+                    if tx.send((interface.name.clone(), network_stats.clone())).is_err() {
+                        println!("Failed to send packet stats");
+                    }
+                }
             }
             Err(e) => panic!("Error reading packet: {}", e),
         }

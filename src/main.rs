@@ -1,18 +1,9 @@
-use std::thread;
-use pnet::datalink;
+mod sniffer;
+mod cli;
 
-use packet_sniffer::sniff_packets;
+use cli::Cli;
 
 fn main() {
-    let interfaces = datalink::interfaces();
-    let mut handles = vec![];
-
-    for interface in interfaces {
-        let handle = thread::spawn(move || sniff_packets(interface));
-        handles.push(handle);
-    }
-
-    for handle in handles {
-        handle.join().unwrap();
-    }
+    let mut cli = Cli::new();
+    cli.run();
 }
