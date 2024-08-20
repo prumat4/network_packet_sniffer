@@ -6,11 +6,12 @@ use pnet::packet::Packet;
 use std::collections::HashMap;
 use std::net::IpAddr;
 use std::sync::mpsc;
+use serde::Serialize;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct PacketStats {
-    count: u64,
-    size: u64,
+    pub count: u64,
+    pub size: u64,
 }
 
 fn print_packet_info(interface: &NetworkInterface, ethernet_packet: EthernetPacket) {
@@ -55,34 +56,19 @@ pub fn sniff_packets(interface: NetworkInterface, tx: mpsc::Sender<(String, Hash
                         EtherTypes::Ipv4 => {
                             if let Some(ipv4_packet) = Ipv4Packet::new(ethernet_packet.payload()) {
                                 let source_ip = IpAddr::V4(ipv4_packet.get_source());
-                                let dest_ip = IpAddr::V4(ipv4_packet.get_destination());
-
                                 let packet_size = ipv4_packet.packet().len() as u64;
-
                                 update_stats(&mut network_stats, source_ip, packet_size);
-                                update_stats(&mut network_stats, dest_ip, packet_size);
-
-                                // println!("IPv4 packet: {} => {}", source_ip, dest_ip);
                             }
                         }
                         EtherTypes::Ipv6 => {
                             if let Some(ipv6_packet) = Ipv6Packet::new(ethernet_packet.payload()) {
                                 let source_ip = IpAddr::V6(ipv6_packet.get_source());
-                                let dest_ip = IpAddr::V6(ipv6_packet.get_destination());
-
                                 let packet_size = ipv6_packet.packet().len() as u64;
-
                                 update_stats(&mut network_stats, source_ip, packet_size);
-                                update_stats(&mut network_stats, dest_ip, packet_size);
-
-                                // println!("IPv6 packet: {} => {}", source_ip, dest_ip);
                             }
                         }
                         _ => {
-                            println!(
-                                "Unhandled packet type: {:?}",
-                                ethernet_packet.get_ethertype()
-                            );
+                            println!("Unhandled packet type: {:?}", ethernet_packet.get_ethertype());
                         }
                     }
                     // println!("--------------------------------------------------------------------------------------");
@@ -100,10 +86,7 @@ pub fn sniff_packets(interface: NetworkInterface, tx: mpsc::Sender<(String, Hash
 }
 
 fn update_stats(stats: &mut HashMap<IpAddr, PacketStats>, ip: IpAddr, packet_size: u64) {
-    let entry = stats.entry(ip).or_insert(PacketStats {
-        count: 0,
-        size: 0,
-    });
+    let entry = stats.entry(ip).or_insert(PacketStats { count: 0, size: 0 });
     entry.count += 1;
     entry.size += packet_size;
 }

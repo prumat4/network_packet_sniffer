@@ -1,19 +1,27 @@
 use crate::sniffer::{sniff_packets, PacketStats};
-
 use std::thread;
 use pnet::datalink;
 use std::net::IpAddr;
 use std::collections::HashMap;
 use std::sync::mpsc;
+use std::time::{Duration, Instant};
+use std::fs::File;
+use serde_json;
 
 pub struct Cli {
-    data: Vec<HashMap<IpAddr, PacketStats>>,
+    data: HashMap<String, HashMap<IpAddr, PacketStats>>,
+    last_save_time: Instant,
+    packet_threshold: u64,
+    packets_since_last_save: u64,
 }
 
 impl Cli {
     pub fn new() -> Self {
         Self {
-            data: Vec::new(),
+            data: HashMap::new(),
+            last_save_time: Instant::now(),
+            packet_threshold: 100, // Save after processing 100 new packets
+            packets_since_last_save: 0,
         }
     }
 
@@ -31,9 +39,18 @@ impl Cli {
         drop(tx);
 
         while let Ok((interface_name, stats)) = rx.recv() {
-            println!("Received stats for interface: {}", interface_name);
             self.update_data(interface_name, stats);
-            println!("data: {:#?}", self.data);
+            println!("Current aggregated data: {:#?}", self.data);
+
+            self.packets_since_last_save += 1;
+
+            // Save if it's been more than 10 seconds or if the packet threshold is exceeded
+            if self.last_save_time.elapsed() >= Duration::new(10, 0) 
+                || self.packets_since_last_save >= self.packet_threshold {
+                self.save_stats();
+                self.last_save_time = Instant::now();
+                self.packets_since_last_save = 0;
+            }
         }
 
         for handle in handles {
@@ -41,25 +58,33 @@ impl Cli {
         }
     }
 
-
-    // this is dumb, update stats, not add :)
     fn update_data(&mut self, interface_name: String, stats: HashMap<IpAddr, PacketStats>) {
-        self.data.push(stats);
+        let entry = self.data.entry(interface_name.clone()).or_insert_with(HashMap::new);
+
+        for (ip, new_stats) in stats {
+            let interface_entry = entry.entry(ip).or_insert(PacketStats { count: 0, size: 0 });
+            interface_entry.count += new_stats.count;
+            interface_entry.size += new_stats.size;
+        }
     }
 
+    fn save_stats(&self) {
+        for (interface_name, stats) in &self.data {
+            let file_path = format!("/home/logi/myself/programming/rust/side_projects/packet_sniffer/jsons/{}.json", interface_name);
+            let file = File::create(file_path).expect("Failed to create file");
+            if let Err(e) = serde_json::to_writer_pretty(file, stats) {
+                println!("Failed to save stats for interface {}: {}", interface_name, e);
+            }
+        }
+    
+        // Save general data
+        let file = File::create("/home/logi/myself/programming/rust/side_projects/packet_sniffer/jsons/general_data.json").expect("Failed to create file");
+        if let Err(e) = serde_json::to_writer_pretty(file, &self.data) {
+            println!("Failed to save general data: {}", e);
+        }
+    }
+    
     pub fn run(&mut self) {
         self.start_sniffing();
     }
 }
-
-/*
-initialization: 
-read json -> update the hasmap
-    for this each thread will find its part of the hashmap and parse only needed part
-    so each thread will have its own hashmap dedicated to only one interface
-
-cli:
-    start -> run sniff packets and update each hashmap
-    stop -> stops sniffing and updates the json
-
-*/
