@@ -7,6 +7,7 @@ use std::sync::mpsc;
 use std::time::{Duration, Instant};
 use std::fs::File;
 use serde_json;
+use std::env;
 
 pub struct Cli {
     data: HashMap<String, HashMap<IpAddr, PacketStats>>,
@@ -20,7 +21,7 @@ impl Cli {
         Self {
             data: HashMap::new(),
             last_save_time: Instant::now(),
-            packet_threshold: 100, // Save after processing 100 new packets
+            packet_threshold: 500,
             packets_since_last_save: 0,
         }
     }
@@ -40,7 +41,7 @@ impl Cli {
 
         while let Ok((interface_name, stats)) = rx.recv() {
             self.update_data(interface_name, stats);
-            println!("Current aggregated data: {:#?}", self.data);
+            // println!("Current aggregated data: {:#?}", self.data);
 
             self.packets_since_last_save += 1;
 
@@ -59,7 +60,7 @@ impl Cli {
 
     fn update_data(&mut self, interface_name: String, stats: HashMap<IpAddr, PacketStats>) {
         let entry = self.data.entry(interface_name.clone()).or_insert_with(HashMap::new);
-
+    
         for (ip, new_stats) in stats {
             let interface_entry = entry.entry(ip).or_insert(PacketStats { count: 0, size: 0 });
             interface_entry.count += new_stats.count;
@@ -68,18 +69,32 @@ impl Cli {
     }
 
     fn save_stats(&self) {
+        let mut json_dir = env::current_dir().expect("Failed to get current directory");
+        json_dir.push("jsons");
+    
+        // Ensure the directory exists
+        std::fs::create_dir_all(&json_dir).expect("Failed to create jsons directory");
+    
         for (interface_name, stats) in &self.data {
-            let file_path = format!("/home/logi/myself/programming/rust/side_projects/packet_sniffer/jsons/{}.json", interface_name);
-            let file = File::create(file_path).expect("Failed to create file");
+            let mut file_path = json_dir.clone();
+            file_path.push(format!("{}.json", interface_name));
+            let file = File::create(&file_path).expect("Failed to create file");
+    
             if let Err(e) = serde_json::to_writer_pretty(file, stats) {
                 println!("Failed to save stats for interface {}: {}", interface_name, e);
+            } else {
+                println!("Saved stats for interface {} to {}", interface_name, file_path.display());
             }
         }
     
-        // Save general data
-        let file = File::create("/home/logi/myself/programming/rust/side_projects/packet_sniffer/jsons/general_data.json").expect("Failed to create file");
+        let mut general_data_path = json_dir.clone();
+        general_data_path.push("general_data.json");
+        let file = File::create(&general_data_path).expect("Failed to create file");
+    
         if let Err(e) = serde_json::to_writer_pretty(file, &self.data) {
             println!("Failed to save general data: {}", e);
+        } else {
+            println!("Saved general data to {}", general_data_path.display());
         }
     }
     

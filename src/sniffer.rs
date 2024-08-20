@@ -52,12 +52,15 @@ pub fn sniff_packets(interface: NetworkInterface, tx: mpsc::Sender<(String, Hash
         match rx.next() {
             Ok(packet) => {
                 if let Some(ethernet_packet) = EthernetPacket::new(packet) {
+                    let mut updated = false;
+
                     match ethernet_packet.get_ethertype() {
                         EtherTypes::Ipv4 => {
                             if let Some(ipv4_packet) = Ipv4Packet::new(ethernet_packet.payload()) {
                                 let source_ip = IpAddr::V4(ipv4_packet.get_source());
                                 let packet_size = ipv4_packet.packet().len() as u64;
                                 update_stats(&mut network_stats, source_ip, packet_size);
+                                updated = true;
                             }
                         }
                         EtherTypes::Ipv6 => {
@@ -65,18 +68,18 @@ pub fn sniff_packets(interface: NetworkInterface, tx: mpsc::Sender<(String, Hash
                                 let source_ip = IpAddr::V6(ipv6_packet.get_source());
                                 let packet_size = ipv6_packet.packet().len() as u64;
                                 update_stats(&mut network_stats, source_ip, packet_size);
+                                updated = true;
                             }
                         }
                         _ => {
                             println!("Unhandled packet type: {:?}", ethernet_packet.get_ethertype());
                         }
                     }
-                    // println!("--------------------------------------------------------------------------------------");
 
-                    // print_network_stats(&interface.name, &network_stats);
-
-                    if tx.send((interface.name.clone(), network_stats.clone())).is_err() {
-                        println!("Failed to send packet stats");
+                    if updated {
+                        if tx.send((interface.name.clone(), network_stats.clone())).is_err() {
+                            println!("Failed to send packet stats");
+                        }
                     }
                 }
             }
@@ -84,6 +87,7 @@ pub fn sniff_packets(interface: NetworkInterface, tx: mpsc::Sender<(String, Hash
         }
     }
 }
+
 
 fn update_stats(stats: &mut HashMap<IpAddr, PacketStats>, ip: IpAddr, packet_size: u64) {
     let entry = stats.entry(ip).or_insert(PacketStats { count: 0, size: 0 });
