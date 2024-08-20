@@ -44,7 +44,6 @@ impl Cli {
 
             self.packets_since_last_save += 1;
 
-            // Save if it's been more than 10 seconds or if the packet threshold is exceeded
             if self.last_save_time.elapsed() >= Duration::new(10, 0) 
                 || self.packets_since_last_save >= self.packet_threshold {
                 self.save_stats();
