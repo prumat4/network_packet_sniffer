@@ -63,8 +63,8 @@ impl Cli {
     
         for (ip, new_stats) in stats {
             let interface_entry = entry.entry(ip).or_insert(PacketStats { count: 0, size: 0 });
-            interface_entry.count += new_stats.count;
-            interface_entry.size += new_stats.size;
+            interface_entry.count = new_stats.count;
+            interface_entry.size = new_stats.size;
         }
     }
 
@@ -72,7 +72,6 @@ impl Cli {
         let mut json_dir = env::current_dir().expect("Failed to get current directory");
         json_dir.push("jsons");
     
-        // Ensure the directory exists
         std::fs::create_dir_all(&json_dir).expect("Failed to create jsons directory");
     
         for (interface_name, stats) in &self.data {
@@ -102,3 +101,17 @@ impl Cli {
         self.start_sniffing();
     }
 }
+
+/*
+next steps:
+1. make the stats to save between reboots
+
+2. cli in separate thread :
+    add start one/all command
+    add stop one/all commnd
+    show ip count
+    show ip size
+    show stats for interface 
+    --help
+
+*/
