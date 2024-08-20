@@ -41,7 +41,7 @@ pub fn sniff_packets(interface: NetworkInterface, tx: mpsc::Sender<(String, IpAd
     let mut rx = match datalink::channel(&interface, Default::default()) {
         Ok(Ethernet(_, rx)) => rx,
         Ok(_) => panic!("Unhandled channel type for interface: {}", interface.name),
-        Err(e) => panic!("Error creating datalink channel: {}", e),
+        Err(e) => panic!("Error while creating datalink channel: {}", e),
     };
 
     println!("Started packet sniffing on: {}", interface.name);
@@ -57,7 +57,7 @@ pub fn sniff_packets(interface: NetworkInterface, tx: mpsc::Sender<(String, IpAd
                                 let packet_size = ipv4_packet.packet().len() as u64;
 
                                 if tx.send((interface.name.clone(), source_ip, packet_size)).is_err() {
-                                    println!("Failed to send packet stats");
+                                    println!("Failed to send packet info");
                                 }
                             }
                         }
@@ -67,7 +67,7 @@ pub fn sniff_packets(interface: NetworkInterface, tx: mpsc::Sender<(String, IpAd
                                 let packet_size = ipv6_packet.packet().len() as u64;
 
                                 if tx.send((interface.name.clone(), source_ip, packet_size)).is_err() {
-                                    println!("Failed to send packet stats");
+                                    println!("Failed to send packet info");
                                 }
                             }
                         }
@@ -80,11 +80,4 @@ pub fn sniff_packets(interface: NetworkInterface, tx: mpsc::Sender<(String, IpAd
             Err(e) => panic!("Error reading packet: {}", e),
         }
     }
-}
-
-
-fn update_stats(stats: &mut HashMap<IpAddr, PacketStats>, ip: IpAddr, packet_size: u64) {
-    let entry = stats.entry(ip).or_insert(PacketStats { count: 0, size: 0 });
-    entry.count += 1;
-    entry.size += packet_size;
 }

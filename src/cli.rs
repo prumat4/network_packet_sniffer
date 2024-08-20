@@ -11,12 +11,6 @@ next steps:
     --help
 
 */
-
-/*
-current problems:
-stats in general and indivudual jsons is different
-*/
-
 use crate::sniffer::{sniff_packets, PacketStats};
 use std::thread;
 use pnet::datalink;
@@ -50,7 +44,7 @@ impl Cli {
         json_dir.push("jsons");
     
         if !json_dir.is_dir() {
-            println!("Jsons directory does not exist, creating new one");
+            println!("jsons directory does not exist, creating it");
             std::fs::create_dir_all(&json_dir).expect("Failed to create jsons directory");
         }
     
